@@ -1,4 +1,4 @@
-import os
+import os #Importar llamada del Sistema Operativo
 import one_player 
 
 def clearterm():
@@ -26,6 +26,7 @@ def menu():
         dashboard()
         print("[ 1 Solo Jugador ]")
         print("[ 2 Jugadores Online]")
+        print("[ 0 Salir]")
         opcion = input("Ingrese Opcion : ").strip() #.strip() Elimina Espacion restante
         sltc_menu(opcion)
         if opcion=='0':
@@ -34,4 +35,24 @@ def menu():
 def sltc_menu(opc):
 
     if opc == '1':
-        print("Mostraria Juego ")
+        clearterm()
+        dashboard()
+        print("Seleccione tamano del Tablero:")
+        print("1. 8x8 (10 Minas)")
+        print("2. 10x10 (20 Minas)")
+        print("3. Personalizado")
+        opc_menu = input("Ingrese Opcion : ").strip()
+
+        if opc_menu == '1':
+            one_player.start_game(8, 8, 10)
+        elif opc_menu == '2':
+            one_player.start_game(10, 10, 20)
+        elif opc_menu == '3':
+            try:
+                rows = int(input("Filas: "))
+                cols = int(input("Columnas: "))
+                mines = int(input("Minas: "))
+                one_player.start_game(rows, cols, mines)
+            except ValueError:
+                print("Entrada inválida. Por favor ingrese números.")
+                input("Presione Enter para continuar...")

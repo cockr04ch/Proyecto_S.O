@@ -1,4 +1,3 @@
-import os #Importar llamada del Sistema Operativo
 import view
 
 
