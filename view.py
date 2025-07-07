@@ -58,7 +58,14 @@ def sltc_menu(opc):
                 print("Entrada inválida. Por favor ingrese números.")
                 input("Presione Enter para continuar...")
     elif opc == '2':
-        multiplayer.start_multiplayer()
+        host = input("Ingrese la IP del servidor (ej. localhost o 192.168.1.100): ").strip()
+        port = input("Ingrese el puerto del servidor (ej. 12345): ").strip()
+        try:
+            port = int(port)
+            multiplayer.start_multiplayer(host, port)
+        except ValueError:
+            print("Puerto inválido. Por favor ingrese un número.")
+            input("Presione Enter para continuar...")
         clearterm()
         dashboard()
         print("Seleccione tamano del Tablero:")

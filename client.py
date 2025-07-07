@@ -9,7 +9,7 @@ def clearterm():
         _ = os.system('clear')
 
 class GameClient:
-    def __init__(self, host='localhost', port=12345):
+    def __init__(self, host, port):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((host, port))
         self.game = None
@@ -82,5 +82,7 @@ class GameClient:
         input("Press Enter to return to the menu...")
 
 if __name__ == "__main__":
-    client = GameClient()
+    # Asume que el servidor está en localhost y puerto 12345 por defecto
+    # Si el servidor está en otra IP, cámbiala aquí.
+    client = GameClient('127.0.0.1', 12345)
     client.start()

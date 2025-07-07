@@ -1,5 +1,5 @@
 import client
 
-def start_multiplayer():
-    game_client = client.GameClient()
+def start_multiplayer(host, port):
+    game_client = client.GameClient(host, port)
     game_client.start()
