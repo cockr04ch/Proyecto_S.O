@@ -50,16 +50,44 @@ class GameServer:
 
     def start(self):
         print("Server started, waiting for players...")
-        while len(self.clients) < 2:
-            client_socket, addr = self.server_socket.accept()
-            self.clients.append(client_socket)
-            print(f"Player {len(self.clients)} connected from {addr}")
 
-        self.game = Buscaminas()
+        # Player 1 connects and sends settings
+        client_socket_p1, addr_p1 = self.server_socket.accept()
+        print(f"Player 1 connected from {addr_p1}")
+        try:
+            settings_data = client_socket_p1.recv(4096)
+            settings = pickle.loads(settings_data)
+            rows, cols, mines = settings['rows'], settings['cols'], settings['mines']
+            self.game = Buscaminas(rows, cols, mines)
+            self.clients.append(client_socket_p1)
+            print(f"Game created with settings from Player 1: {rows}x{cols}, {mines} mines.")
+        except Exception as e:
+            print(f"Error setting up game with Player 1: {e}")
+            client_socket_p1.close()
+            return
+
+        # Player 2 connects and sends settings (which are ignored)
+        print("Waiting for Player 2...")
+        client_socket_p2, addr_p2 = self.server_socket.accept()
+        print(f"Player 2 connected from {addr_p2}")
+        try:
+            # Read and discard settings from player 2
+            client_socket_p2.recv(4096)
+            self.clients.append(client_socket_p2)
+        except Exception as e:
+            print(f"Error connecting Player 2: {e}")
+            client_socket_p2.close()
+            if self.clients:
+                self.clients[0].close()
+            return
+
+        # Both players connected, game is ready. Broadcast initial state.
+        print("Both players connected. Starting game.")
         self.broadcast_game_state()
 
-        for i, client in enumerate(self.clients):
-            threading.Thread(target=self.handle_client, args=(client, i)).start()
+        # Start threads to handle client actions
+        threading.Thread(target=self.handle_client, args=(self.clients[0], 0)).start()
+        threading.Thread(target=self.handle_client, args=(self.clients[1], 1)).start()
 
 if __name__ == "__main__":
     server = GameServer()

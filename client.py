@@ -9,10 +9,11 @@ def clearterm():
         _ = os.system('clear')
 
 class GameClient:
-    def __init__(self, host, port):
+    def __init__(self, host, port, rows, cols, mines):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((host, port))
         self.game = None
+        self.client_socket.sendall(pickle.dumps({'rows': rows, 'cols': cols, 'mines': mines}))
 
     def receive_game_state(self):
         while True:
