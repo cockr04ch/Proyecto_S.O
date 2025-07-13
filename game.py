@@ -1,5 +1,6 @@
 import random
 from collections import deque
+import time
 
 # Constantes para estados de las celdas
 HIDDEN = 0
@@ -17,6 +18,8 @@ class Buscaminas:
         self.game_over = False
         self.win = False
         self.first_move = True
+        self.start_time = None
+        self.elapsed_time = 0
         self.initialize_game()
     
     def initialize_game(self):
@@ -27,6 +30,14 @@ class Buscaminas:
         
         # Colocar minas (se hará después del primer movimiento)
         self.mine_locations = set()
+    
+    def start_timer(self):
+        self.start_time = time.time()
+    
+    def get_elapsed_time(self):
+        if self.start_time is None:
+            return 0
+        return int(time.time() - self.start_time)
     
     def place_mines(self, first_x, first_y):
         """Coloca minas evitando la posición inicial y sus vecinos"""
@@ -64,6 +75,7 @@ class Buscaminas:
         # Colocar minas después del primer movimiento (para evitar perder en la primera jugada)
         if self.first_move:
             self.place_mines(x, y)
+            self.start_timer()  # Iniciar el cronómetro en el primer movimiento
             self.first_move = False
         
         # Caso mina
@@ -144,6 +156,14 @@ class Buscaminas:
 
     def print_board(self, show_mines=False):
         """Imprime el tablero en la terminal"""
+        # Actualizar tiempo
+        if self.start_time and not self.game_over:
+            self.elapsed_time = self.get_elapsed_time()
+        
+        # Mostrar tiempo en formato MM:SS
+        mins, secs = divmod(self.elapsed_time, 60)
+        print(f"Tiempo: {mins:02d}:{secs:02d} | Minas: {self.mines}")
+        
         # Encabezado de columnas
         print("   " + " ".join(str(i) for i in range(self.cols)))
         

@@ -1,72 +1,154 @@
 import socket
 import pickle
 import os
-
-def clearterm():
-    if os.name == 'nt':
-        _ = os.system('cls')
-    else:
-        _ = os.system('clear')
+import sys
+import time
+import threading
+from utils import clearterm
 
 class GameClient:
-    def __init__(self, host, port, rows, cols, mines):
+    def __init__(self, host, port):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((host, port))
         self.game = None
-        self.client_socket.sendall(pickle.dumps({'rows': rows, 'cols': cols, 'mines': mines}))
+        self.game_id = None
+        self.player_id = None
+        self.error = None
+        self.receive_thread_ready = threading.Event()
+
+    def play_sound(self):
+        """Reproduce sonido compatible con Termux"""
+        if sys.platform == "linux":
+            sys.stdout.write('\a')
+            sys.stdout.flush()
 
     def receive_game_state(self):
+        self.receive_thread_ready.set()
         while True:
             try:
                 data = self.client_socket.recv(4096)
                 if not data:
+                    self.error = "Conexión perdida con el servidor."
                     break
                 
                 received_data = pickle.loads(data)
-                if isinstance(received_data, dict) and 'error' in received_data:
-                    print(received_data['error'])
-                else:
-                    self.game = received_data
-                    self.display_board()
 
+                if isinstance(received_data, dict):
+                    if 'error' in received_data:
+                        self.error = received_data['error']
+                        print(f"\rError del servidor: {self.error}")
+                        break
+
+                    if 'game_id' in received_data and self.game_id is None:
+                        self.game_id = received_data['game_id']
+                    if 'player_id' in received_data and self.player_id is None:
+                        self.player_id = received_data['player_id']
+
+                    if 'game' in received_data:
+                        self.game = received_data['game']
+                        if received_data.get('your_turn', False):
+                            self.play_sound()
+                        self.display_board()
+                    
+                    if 'message' in received_data:
+                        print(f"\r{' ' * 80}\r{received_data['message']}", end="\n")
+
+            except (pickle.UnpicklingError, ConnectionResetError, BrokenPipeError) as e:
+                self.error = f"Error de conexión: {e}"
+                break
             except Exception as e:
-                print(f"Error receiving game state: {e}")
+                self.error = f"Error inesperado: {e}"
                 break
 
     def display_board(self):
         clearterm()
-        self.game.print_board()
+        from ui import print_bordered_board
+        print_bordered_board(
+            self.game.board,
+            self.game.state,
+            self.game.rows,
+            self.game.cols,
+            self.game.elapsed_time,
+            self.game.mines,
+            self.game.score,
+            show_mines=self.game.game_over
+        )
+        if not self.game.game_over:
+            if self.game.current_turn == self.player_id:
+                print(f"Es tu turno (Jugador {self.player_id})")
+            else:
+                print(f"Turno del oponente (Jugador {1 - self.player_id})")
 
     def send_action(self, action):
-        self.client_socket.sendall(pickle.dumps(action))
+        try:
+            self.client_socket.sendall(pickle.dumps(action))
+        except (ConnectionResetError, BrokenPipeError):
+            self.error = "No se pudo enviar la acción. El servidor cerró la conexión."
 
-    def start(self):
-        import threading
+    def start(self, initial_action):
         receive_thread = threading.Thread(target=self.receive_game_state)
         receive_thread.daemon = True
         receive_thread.start()
 
-        while self.game is None:
-            pass # Wait for initial game state
+        self.receive_thread_ready.wait() # Wait for the thread to be ready
 
-        while not self.game.game_over:
-            action_str = input("Action (r x y: reveal, f x y: flag, q: quit): ").split()
+        self.send_action(initial_action)
+
+        # 1. Wait for the server to acknowledge the connection and assign a player_id
+        print("Registrando en el servidor...")
+        start_wait = time.time()
+        while self.player_id is None and self.error is None:
+            time.sleep(0.1)
+            if time.time() - start_wait > 15:  # 15-second timeout for handshake
+                self.error = "No se recibió respuesta del servidor."
+                break
+        
+        if self.error:
+            print(f"\nError de conexión: {self.error}")
+            input("Presione Enter para volver al menú...")
+            self.client_socket.close()
+            return
+
+        # 2. If we are the creator, wait for the opponent. The joiner will get the game state immediately.
+        if self.game is None and self.error is None:
+            # The message with the game_id should have been printed by the receive_thread
+            print("Esperando a que se una el oponente...")
+            start_wait = time.time()
+            while self.game is None and self.error is None:
+                time.sleep(0.2)
+                if time.time() - start_wait > 300:  # 5-minute timeout for opponent
+                    self.error = "Tiempo de espera para el oponente agotado."
+                    break
+
+        if self.error and not self.game:
+            print(f"\nNo se pudo iniciar la partida: {self.error}")
+            input("Presione Enter para volver al menú...")
+            self.client_socket.close()
+            return
+        
+        # 3. Main game loop
+        while not self.game.game_over and self.error is None:
+            action_str = input("Acción (r x y: revelar, f x y: bandera, q: salir): ").split()
             
-            if not action_str:
+            if not action_str or self.error:
                 continue
 
             if action_str[0] == 'q':
                 break
 
             if len(action_str) < 3:
-                print("Invalid command")
+                print("Comando inválido")
                 continue
 
             try:
                 x = int(action_str[1])
                 y = int(action_str[2])
             except ValueError:
-                print("Invalid coordinates")
+                print("Coordenadas inválidas")
+                continue
+
+            if self.game.current_turn != self.player_id:
+                print("No es tu turno.")
                 continue
 
             if action_str[0] == 'r':
@@ -74,16 +156,15 @@ class GameClient:
             elif action_str[0] == 'f':
                 self.send_action({'type': 'flag', 'x': x, 'y': y})
             else:
-                print("Invalid action")
+                print("Acción inválida")
 
-        if self.game.win:
-            print(f"You won! Final score: {self.game.score}")
-        else:
-            print(f"Game over! Final score: {self.game.score}")
-        input("Press Enter to return to the menu...")
-
-if __name__ == "__main__":
-    # Asume que el servidor está en localhost y puerto 12345 por defecto
-    # Si el servidor está en otra IP, cámbiala aquí.
-    client = GameClient('127.0.0.1', 12345)
-    client.start()
+        # 4. Game End
+        if self.error:
+             print(f"\nSe ha producido un error: {self.error}")
+        elif self.game and self.game.win:
+            print(f"¡Has ganado! Puntuación final: {self.game.score}")
+        elif self.game:
+            print(f"¡Juego terminado! Puntuación final: {self.game.score}")
+        
+        input("\nPresione Enter para volver al menú...")
+        self.client_socket.close()

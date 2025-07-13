@@ -1,11 +1,30 @@
 from game import Buscaminas
+import rankings
+import time
+from ui import print_bordered_board
 
 def start_game(rows, cols, mines):
     """Inicia y corre un juego de buscaminas con los parametros dados."""
     game = Buscaminas(rows, cols, mines)
+    mode = f"{rows}x{cols}-{mines}minas"
+    start_time = time.time()
     
     while not game.game_over:
-        game.print_board()
+        # Actualizar tiempo
+        if game.start_time and not game.game_over:
+            game.elapsed_time = game.get_elapsed_time()
+        
+        # Usar la nueva función de impresión
+        print_bordered_board(
+            game.board,
+            game.state,
+            game.rows,
+            game.cols,
+            game.elapsed_time,
+            game.mines,
+            game.score
+        )
+        
         action = input("Acción (r x y: revelar, f x y: bandera, q: salir): ").split()
         
         if not action:
@@ -39,31 +58,21 @@ def start_game(rows, cols, mines):
         game.check_win()
     
     # Mostrar resultado final
-    game.print_board(show_mines=True)
+    game.elapsed_time = game.get_elapsed_time()
+    print_bordered_board(
+        game.board,
+        game.state,
+        game.rows,
+        game.cols,
+        game.elapsed_time,
+        game.mines,
+        game.score,
+        True
+    )
+    elapsed_time = game.elapsed_time
     if game.win:
         print(f"¡Ganaste! Puntuación final: {game.score}")
+        rankings.save_score(game.score, mode, int(elapsed_time))
     else:
         print(f"¡Juego terminado! Puntuación final: {game.score}")
     input("Presione Enter para volver al menú...")
-
-def main_menu_for_direct_run():
-    """Menu para cuando el script se corre directamente."""
-    print("Seleccione tamaño de tablero:")
-    print("1. 8x8 (10 minas)")
-    print("2. 10x10 (20 minas)")
-    print("3. Personalizado")
-    
-    choice = input("Opción: ")
-    
-    if choice == '1':
-        start_game(8, 8, 10)
-    elif choice == '2':
-        start_game(10, 10, 20)
-    else:
-        rows = int(input("Filas: "))
-        cols = int(input("Columnas: "))
-        mines = int(input("Minas: "))
-        start_game(rows, cols, mines)
-
-if __name__ == "__main__":
-    main_menu_for_direct_run()
