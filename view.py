@@ -1,17 +1,10 @@
-import os #Importar llamada del Sistema Operativo
 import one_player
 import multiplayer 
-
-def clearterm():
-    if os.name == 'nt':
-        _ = os.system('cls')
-    else:
-        _ = os.system('clear')
-
-
+import rankings
+from utils import clearterm
 
 def dashboard():
-    print("""
+    print(r"""
  ____  _  _  ____   ___   __              
 (  _ \/ )( \/ ___) / __) / _\             
  ) _ () \/ (\\___ \( (__ /    \            
@@ -27,6 +20,7 @@ def menu():
         dashboard()
         print("[ 1 Solo Jugador ]")
         print("[ 2 Jugadores Online]")
+        print("[ 3 Ver Rankings ]")
         print("[ 0 Salir]")
         opcion = input("Ingrese Opcion : ").strip() #.strip() Elimina Espacion restante
         sltc_menu(opcion)
@@ -34,7 +28,6 @@ def menu():
             break
 
 def sltc_menu(opc):
-
     if opc == '1':
         clearterm()
         dashboard()
@@ -62,7 +55,7 @@ def sltc_menu(opc):
         port = input("Ingrese el puerto del servidor (ej. 12345): ").strip()
         try:
             port = int(port)
-            # Iniciar el modo multijugador y pasar las opciones del tablero
+            # Iniciar el modo multijugador
             clearterm()
             dashboard()
             print("Seleccione tamano del Tablero:")
@@ -88,3 +81,7 @@ def sltc_menu(opc):
         except ValueError:
             print("Puerto inválido. Por favor ingrese un número.")
             input("Presione Enter para continuar...")
+    elif opc == '3':
+        clearterm()
+        rankings.show_rankings()
+        input("\nPresione Enter para volver al menú...")
