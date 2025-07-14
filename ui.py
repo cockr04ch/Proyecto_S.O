@@ -32,7 +32,7 @@ def print_bordered_board(board, state, rows, cols, elapsed_time=0, mines=0, scor
     print(f"{time_str} | {mines_str}")
     
     # Encabezado de columnas
-    header = "   " + " ".join(f"{COLOR_MAP['border']}{i:^3}{Style.RESET_ALL}" for i in range(cols))
+    header = "" + " ".join(f"{COLOR_MAP['border']}{i:^3}{Style.RESET_ALL}" for i in range(cols))
     print(f"{COLOR_MAP['border']}  ╔{'╦'.join(['═══']*cols)}╗")
     print(f"  ║{header}║")
     
