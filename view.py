@@ -1,9 +1,6 @@
 import one_player
 import multiplayer 
 import rankings
-import pygame.mixer
-import threading
-import time
 from utils import clearterm
 
 def dashboard():
@@ -31,28 +28,8 @@ def dashboard():
 
           """)
 
-def play_background_music():
-    try:
-        pygame.mixer.init()
-        pygame.mixer.music.load("menu_music.mp3")  # Asegúrate de tener este archivo
-        pygame.mixer.music.play(-1)  # -1 para loop infinito
-    except Exception as e:
-        print(f"Error al reproducir música: {e}")
-
-def stop_background_music():
-    try:
-        pygame.mixer.music.stop()
-    except:
-        pass
-
-
-
 def menu():
     # Iniciar música en un hilo separado
-    music_thread = threading.Thread(target=play_background_music)
-    music_thread.daemon = True
-    music_thread.start()
-
     while True :
         clearterm()
         dashboard()
@@ -61,20 +38,10 @@ def menu():
         print("[ 3 Ver Rankings ]")
         print("[ 0 Salir]")
         opcion = input("Ingrese Opcion : ").strip() #.strip() Elimina Espacion restante
-        # Detener música al seleccionar juego
-        if opcion in ['1', '2']:
-            stop_background_music()
-
         sltc_menu(opcion)
 
-         # Reanudar música al volver al menú
-        if opcion in ['1', '2'] and not pygame.mixer.music.get_busy():
-            music_thread = threading.Thread(target=play_background_music)
-            music_thread.daemon = True
-            music_thread.start()
 
         if opcion=='0':
-            stop_background_music()
             break
 
 def sltc_menu(opc):

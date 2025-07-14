@@ -5,8 +5,6 @@ from ui import print_bordered_board
 
 def start_game(rows, cols, mines):
     """Inicia y corre un juego de buscaminas con los parametros dados."""
-    from view import stop_background_music
-    stop_background_music()
     game = Buscaminas(rows, cols, mines)
     mode = f"{rows}x{cols}-{mines}minas"
     start_time = time.time()
