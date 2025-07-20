@@ -116,6 +116,7 @@ class GameServer:
                 update_notifications = []
                 with self.lock:
                     if game.current_turn == player_id:
+                        # Procesar la acción del jugador
                         if action['type'] == 'reveal':
                             game.reveal(action['x'], action['y'], player_id)
                         elif action['type'] == 'flag':
@@ -123,32 +124,33 @@ class GameServer:
                         
                         game.check_win()
 
+                        # Preparar la actualización para todos los clientes
+                        message = ""
                         if game.game_over:
                             game_ended_gracefully = True
-                            message = ""
                             if game.win:
                                 message = "¡Ambos jugadores ganan!"
                             elif game.loser_id is not None:
                                 winner_id = 1 - game.loser_id
                                 message = f"Jugador {game.loser_id} pisó una mina. ¡Gana el Jugador {winner_id}!"
-                            
-                            for i, c in enumerate(clients):
-                                data = pickle.dumps({
-                                    "game": game, "your_turn": False, "message": message
-                                })
-                                update_notifications.append((c, data))
                         else:
+                            # Si el juego no ha terminado, cambiar de turno
                             game.current_turn = 1 - game.current_turn
-                            for i, c in enumerate(clients):
-                                data = pickle.dumps({
-                                    "game": game,
-                                    "your_turn": (i == game.current_turn)
-                                })
-                                update_notifications.append((c, data))
+                        
+                        # Enviar el estado actualizado a todos
+                        for i, c in enumerate(clients):
+                            data = pickle.dumps({
+                                "game": game,
+                                "your_turn": (i == game.current_turn and not game.game_over),
+                                "message": message
+                            })
+                            update_notifications.append((c, data))
                     else:
+                        # Informar al jugador que no es su turno
                         error_data = pickle.dumps({"message": "No es tu turno"})
                         update_notifications.append((client_socket, error_data))
                 
+                # Enviar todas las notificaciones fuera del bloqueo
                 for c, data in update_notifications:
                     try:
                         c.sendall(data)
@@ -175,13 +177,13 @@ class GameServer:
                                 c.sendall(pickle.dumps({"error": "El otro jugador se ha desconectado. Fin de la partida."}))
                             except: pass
                     
-                    if not self.clients_per_game.get(game_id) or game_ended_gracefully:
-                        if not any(c.fileno() != -1 for c in self.clients_per_game.get(game_id, [])):
-                            print(f"Eliminando partida vacía o terminada {game_id}.")
-                            if game_id in self.games: del self.games[game_id]
-                            if game_id in self.clients_per_game: del self.clients_per_game[game_id]
-                            if game_id in self.settings_per_game: del self.settings_per_game[game_id]
-                            if game_id in self.game_events: del self.game_events[game_id]
+                    # Comprobar si el juego debe ser eliminado
+                    if not self.clients_per_game.get(game_id) or all(c.fileno() == -1 for c in self.clients_per_game.get(game_id, [])):
+                        print(f"Eliminando partida vacía o terminada {game_id}.")
+                        if game_id in self.games: del self.games[game_id]
+                        if game_id in self.clients_per_game: del self.clients_per_game[game_id]
+                        if game_id in self.settings_per_game: del self.settings_per_game[game_id]
+                        if game_id in self.game_events: del self.game_events[game_id]
 
             client_socket.close()
 
