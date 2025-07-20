@@ -20,6 +20,7 @@ class Buscaminas:
         self.first_move = True
         self.start_time = None
         self.elapsed_time = 0
+        self.loser_id = None    # ID del jugador que pisó una mina
         self.initialize_game()
     
     def initialize_game(self):
@@ -67,7 +68,7 @@ class Buscaminas:
                     if 0 <= nx < self.rows and 0 <= ny < self.cols and self.board[nx][ny] != -1:
                         self.board[nx][ny] += 1
 
-    def reveal(self, x, y):
+    def reveal(self, x, y, player_id=None):
         """Revela una celda y maneja la expansión de celdas vacías"""
         if self.game_over or self.state[x][y] != HIDDEN:
             return False
@@ -83,6 +84,7 @@ class Buscaminas:
             self.state[x][y] = REVEALED
             self.score -= 5
             self.game_over = True
+            self.loser_id = player_id
             return True
         
         # Caso número o vacío
