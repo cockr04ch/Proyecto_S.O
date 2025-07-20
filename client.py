@@ -36,7 +36,7 @@ class GameClient:
                 if isinstance(received_data, dict):
                     if 'error' in received_data:
                         self.error = received_data['error']
-                        print(f"\rError del servidor: {self.error}")
+                        # No imprimir aquí, el bucle principal lo hará
                         break
 
                     if 'game_id' in received_data and self.game_id is None:
@@ -51,7 +51,7 @@ class GameClient:
                         self.display_board()
                     
                     if 'message' in received_data:
-                        print(f"\r{' ' * 80}\r{received_data['message']}", end="\n")
+                        print(f"{' ' * 80}{received_data['message']}", end="\n")
 
             except (pickle.UnpicklingError, ConnectionResetError, BrokenPipeError) as e:
                 self.error = f"Error de conexión: {e}"
@@ -90,16 +90,15 @@ class GameClient:
         receive_thread.daemon = True
         receive_thread.start()
 
-        self.receive_thread_ready.wait() # Wait for the thread to be ready
+        self.receive_thread_ready.wait()
 
         self.send_action(initial_action)
 
-        # 1. Wait for the server to acknowledge the connection and assign a player_id
         print("Registrando en el servidor...")
         start_wait = time.time()
         while self.player_id is None and self.error is None:
             time.sleep(0.1)
-            if time.time() - start_wait > 15:  # 15-second timeout for handshake
+            if time.time() - start_wait > 15:
                 self.error = "No se recibió respuesta del servidor."
                 break
         
@@ -109,14 +108,12 @@ class GameClient:
             self.client_socket.close()
             return
 
-        # 2. If we are the creator, wait for the opponent. The joiner will get the game state immediately.
         if self.game is None and self.error is None:
-            # The message with the game_id should have been printed by the receive_thread
             print("Esperando a que se una el oponente...")
             start_wait = time.time()
             while self.game is None and self.error is None:
                 time.sleep(0.2)
-                if time.time() - start_wait > 300:  # 5-minute timeout for opponent
+                if time.time() - start_wait > 300:
                     self.error = "Tiempo de espera para el oponente agotado."
                     break
 
@@ -126,7 +123,6 @@ class GameClient:
             self.client_socket.close()
             return
         
-        # 3. Main game loop
         while not self.game.game_over and self.error is None:
             action_str = input("Acción (r x y: revelar, f x y: bandera, q: salir): ").split()
             
@@ -158,7 +154,6 @@ class GameClient:
             else:
                 print("Acción inválida")
 
-        # 4. Game End
         if self.error:
              print(f"\nSe ha producido un error: {self.error}")
         elif self.game and self.game.win:

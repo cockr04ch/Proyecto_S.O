@@ -7,7 +7,6 @@ def start_game(rows, cols, mines):
     """Inicia y corre un juego de buscaminas con los parametros dados."""
     game = Buscaminas(rows, cols, mines)
     mode = f"{rows}x{cols}-{mines}minas"
-    start_time = time.time()
     
     while not game.game_over:
         # Actualizar tiempo
@@ -58,7 +57,8 @@ def start_game(rows, cols, mines):
         game.check_win()
     
     # Mostrar resultado final
-    game.elapsed_time = game.get_elapsed_time()
+    if game.start_time:
+        game.elapsed_time = game.get_elapsed_time()
     print_bordered_board(
         game.board,
         game.state,
