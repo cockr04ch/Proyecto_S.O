@@ -5,15 +5,15 @@ from ui import print_bordered_board
 
 def start_game(rows, cols, mines):
     """Inicia y corre un juego de buscaminas con los parametros dados."""
+    # El jugador en modo de un jugador es siempre el jugador 0
+    player_id = 0
     game = Buscaminas(rows, cols, mines)
     mode = f"{rows}x{cols}-{mines}minas"
     
     while not game.game_over:
-        # Actualizar tiempo
         if game.start_time and not game.game_over:
             game.elapsed_time = game.get_elapsed_time()
         
-        # Usar la nueva función de impresión
         print_bordered_board(
             game.board,
             game.state,
@@ -21,7 +21,8 @@ def start_game(rows, cols, mines):
             game.cols,
             game.elapsed_time,
             game.mines,
-            game.score
+            # Usar la puntuación del jugador 0
+            game.scores[player_id]
         )
         
         action = input("Acción (r x y: revelar, f x y: bandera, q: salir): ").split()
@@ -48,17 +49,20 @@ def start_game(rows, cols, mines):
             continue
             
         if action[0] == 'r':
-            game.reveal(x, y)
+            # Pasar el player_id a los métodos de juego
+            game.reveal(x, y, player_id)
         elif action[0] == 'f':
-            game.toggle_flag(x, y)
+            game.toggle_flag(x, y, player_id)
         else:
             print("Acción inválida")
         
         game.check_win()
     
-    # Mostrar resultado final
     if game.start_time:
         game.elapsed_time = game.get_elapsed_time()
+    
+    final_score = game.scores[player_id]
+    
     print_bordered_board(
         game.board,
         game.state,
@@ -66,13 +70,19 @@ def start_game(rows, cols, mines):
         game.cols,
         game.elapsed_time,
         game.mines,
-        game.score,
-        True
+        final_score,
+        True # Mostrar minas al final
     )
+    
     elapsed_time = game.elapsed_time
+    
     if game.win:
-        print(f"¡Ganaste! Puntuación final: {game.score}")
-        rankings.save_score(game.score, mode, int(elapsed_time))
+        print(f"¡Ganaste! Puntuación final: {final_score}")
     else:
-        print(f"¡Juego terminado! Puntuación final: {game.score}")
+        print(f"¡Juego terminado! Puntuación final: {final_score}")
+    
+    # Guardar la puntuación independientemente de si se gana o se pierde
+    rankings.save_score(final_score, mode, int(elapsed_time))
+    print("Tu puntuación ha sido guardada en el ranking.")
+    
     input("Presione Enter para volver al menú...")

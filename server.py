@@ -3,6 +3,7 @@ import pickle
 import threading
 import time
 from game import Buscaminas
+import rankings # Importar el módulo de rankings
 
 class GameServer:
     def __init__(self, host='0.0.0.0', port=12345):
@@ -33,7 +34,6 @@ class GameServer:
         self.game_counter += 1
         rows, cols, mines = settings
         game = Buscaminas(rows, cols, mines)
-        game.current_turn = 0
         self.games[game_id] = game
         self.settings_per_game[game_id] = settings
         self.clients_per_game[game_id] = []
@@ -49,14 +49,10 @@ class GameServer:
         
         try:
             initial_data = client_socket.recv(4096)
-            if not initial_data:
-                return
+            if not initial_data: return
             
             action = pickle.loads(initial_data)
             username = action.get('username', f"Jugador_{int(time.time())}")
-
-            response_to_send = None
-            notifications_to_send = []
 
             with self.lock:
                 if action['type'] == 'create':
@@ -66,11 +62,7 @@ class GameServer:
                     self.clients_per_game[game_id].append(client_socket)
                     self.player_names[game_id].append(username)
                     is_creator = True
-                    
-                    response_to_send = pickle.dumps({
-                        "game_id": game_id, "player_id": player_id,
-                        "message": f"Partida creada con ID {game_id}. Esperando oponente..."
-                    })
+                    client_socket.sendall(pickle.dumps({"game_id": game_id, "player_id": player_id, "message": f"Partida creada con ID {game_id}. Esperando oponente..."}))
 
                 elif action['type'] == 'join':
                     game_id = action.get('game_id')
@@ -81,33 +73,21 @@ class GameServer:
                         game = self.games[game_id]
                         game.player_names = self.player_names[game_id]
                         
+                        notification = {"game": game, "game_id": game_id, "message": "Oponente encontrado. ¡La partida comienza!"}
                         for i, c in enumerate(self.clients_per_game[game_id]):
-                            data = pickle.dumps({
-                                "game": game, "game_id": game_id, "player_id": i,
-                                "your_turn": (i == game.current_turn),
-                                "message": "Oponente encontrado. ¡La partida comienza!"
-                            })
-                            notifications_to_send.append((c, data))
-                        
+                            notification.update({"player_id": i, "your_turn": (i == game.current_turn)})
+                            c.sendall(pickle.dumps(notification))
                         self.game_events[game_id].set()
                     else:
-                        response_to_send = pickle.dumps({"error": "ID de partida inválido o la partida está llena"})
+                        client_socket.sendall(pickle.dumps({"error": "ID de partida inválido o la partida está llena"}))
+                        return
                 else:
-                    response_to_send = pickle.dumps({"error": "Acción inválida"})
-            
-            if response_to_send:
-                client_socket.sendall(response_to_send)
-                if b'error' in response_to_send: return
-
-            for c, data in notifications_to_send:
-                c.sendall(data)
+                    client_socket.sendall(pickle.dumps({"error": "Acción inválida"}))
+                    return
 
             if is_creator:
                 if not self.game_events[game_id].wait(timeout=300):
-                    print(f"Partida {game_id} expiró.")
-                    try:
-                        client_socket.sendall(pickle.dumps({"error": "Tiempo de espera para oponente agotado."}))
-                    except: pass
+                    client_socket.sendall(pickle.dumps({"error": "Tiempo de espera para oponente agotado."}))
                     return
             
             game = self.games[game_id]
@@ -119,72 +99,62 @@ class GameServer:
                 
                 action = pickle.loads(data)
                 
-                update_notifications = []
                 with self.lock:
                     if game.current_turn == player_id:
                         move_was_valid = False
                         if action['type'] == 'reveal':
                             move_was_valid = game.reveal(action['x'], action['y'], player_id)
                         elif action['type'] == 'flag':
-                            move_was_valid = game.toggle_flag(action['x'], action['y'])
+                            move_was_valid = game.toggle_flag(action['x'], action['y'], player_id)
                         
                         if move_was_valid:
                             game.check_win()
                             message = ""
                             if game.game_over:
                                 game_ended_gracefully = True
+                                winner_id = -1
                                 if game.win:
-                                    message = "¡Ambos jugadores ganan!"
+                                    winner_id = game.current_turn # El jugador actual gana
+                                    message = f"¡Gana {game.player_names[winner_id]}!"
                                 elif game.loser_id is not None:
                                     winner_id = 1 - game.loser_id
                                     winner_name = game.player_names[winner_id]
                                     loser_name = game.player_names[game.loser_id]
                                     message = f"{loser_name} pisó una mina. ¡Gana {winner_name}!"
+                                
+                                # Guardar puntuación del ganador
+                                if winner_id != -1:
+                                    winner_score = game.scores[winner_id]
+                                    mode = f"{game.rows}x{game.cols}-{game.mines}"
+                                    rankings.save_score(winner_score, mode, int(game.elapsed_time))
+
                             else:
                                 game.current_turn = 1 - game.current_turn
                             
+                            notification = {"game": game, "message": message}
                             for i, c in enumerate(clients):
-                                data = pickle.dumps({
-                                    "game": game,
-                                    "your_turn": (i == game.current_turn and not game.game_over),
-                                    "message": message
-                                })
-                                update_notifications.append((c, data))
+                                notification.update({"your_turn": (i == game.current_turn and not game.game_over)})
+                                c.sendall(pickle.dumps(notification))
                         else:
-                            error_data = pickle.dumps({"message": "Movimiento inválido."})
-                            update_notifications.append((client_socket, error_data))
+                            client_socket.sendall(pickle.dumps({"message": "Movimiento inválido."}))
                     else:
-                        error_data = pickle.dumps({"message": "No es tu turno"})
-                        update_notifications.append((client_socket, error_data))
-                
-                for c, data in update_notifications:
-                    try:
-                        c.sendall(data)
-                    except:
-                        print(f"No se pudo enviar a un cliente en la partida {game_id}")
+                        client_socket.sendall(pickle.dumps({"message": "No es tu turno"}))
 
         except (pickle.UnpicklingError, ConnectionResetError, BrokenPipeError) as e:
-            print(f"Cliente desconectado (Juego: {game_id}, Jugador: {player_id}): {e}")
-        except Exception as e:
-            print(f"Error en la conexión (Juego: {game_id}, Jugador: {player_id}): {e}")
-        
+            print(f"Cliente desconectado: {e}")
         finally:
             with self.lock:
                 if game_id and game_id in self.games:
                     if not game_ended_gracefully:
                         self.games[game_id].game_over = True
-                        
-                        if client_socket in self.clients_per_game.get(game_id, []):
-                            self.clients_per_game[game_id].remove(client_socket)
-                        
-                        remaining_clients = self.clients_per_game.get(game_id, [])
+                        remaining_clients = [c for c in self.clients_per_game.get(game_id, []) if c != client_socket]
                         for c in remaining_clients:
-                            try:
-                                c.sendall(pickle.dumps({"error": "El otro jugador se ha desconectado. Fin de la partida."}))
-                            except: pass
+                            c.sendall(pickle.dumps({"error": "El otro jugador se ha desconectado."}))
                     
-                    if not self.clients_per_game.get(game_id) or all(c.fileno() == -1 for c in self.clients_per_game.get(game_id, [])):
-                        print(f"Eliminando partida vacía o terminada {game_id}.")
+                    if client_socket in self.clients_per_game.get(game_id, []):
+                        self.clients_per_game[game_id].remove(client_socket)
+                    
+                    if not self.clients_per_game.get(game_id):
                         if game_id in self.games: del self.games[game_id]
                         if game_id in self.clients_per_game: del self.clients_per_game[game_id]
                         if game_id in self.settings_per_game: del self.settings_per_game[game_id]
@@ -194,23 +164,8 @@ class GameServer:
             client_socket.close()
 
     def stop(self):
-        """Detiene el servidor de forma segura."""
-        if not self.running:
-            return
-        
-        print("Deteniendo el servidor...")
         self.running = False
-        
-        try:
-            host, port = self.server_socket.getsockname()
-            if host == '0.0.0.0':
-                host = '127.0.0.1'
-            
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as dummy_socket:
-                dummy_socket.settimeout(1)
-                dummy_socket.connect((host, port))
-        except Exception as e:
-            print(f"Excepción durante el apagado del servidor (puede ser normal): {e}")
+        self.server_socket.close()
 
     def start(self):
         print(f"Servidor iniciado en {self.server_socket.getsockname()}, esperando jugadores...")
@@ -218,17 +173,10 @@ class GameServer:
         timer_thread.daemon = True
         timer_thread.start()
         
-        try:
-            while self.running:
+        self.running = True
+        while self.running:
+            try:
                 client_socket, addr = self.server_socket.accept()
-                print(f"Nueva conexión desde {addr}")
                 threading.Thread(target=self.handle_connection, args=(client_socket,)).start()
-        finally:
-            self.running = False
-            timer_thread.join()
-            self.server_socket.close()
-            print("Servidor detenido.")
-
-if __name__ == "__main__":
-    server = GameServer()
-    server.start()
+            except OSError:
+                break # Socket cerrado
