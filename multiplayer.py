@@ -7,6 +7,11 @@ import time
 
 def start_multiplayer(host, port, rows, cols, mines):
     clearterm()
+    
+    username = input("Ingresa tu nombre: ").strip()
+    if not username:
+        username = f"Usuario_{int(time.time())}"
+
     print("1. Crear partida (serás el anfitrión)")
     print("2. Unirse a una partida")
     choice = input("Opción: ").strip()
@@ -23,7 +28,7 @@ def start_multiplayer(host, port, rows, cols, mines):
 
             # Conectar el cliente anfitrión
             game_client = client.GameClient(host, port)
-            action = {'type': 'create', 'rows': rows, 'cols': cols, 'mines': mines}
+            action = {'type': 'create', 'rows': rows, 'cols': cols, 'mines': mines, 'username': username}
             game_client.start(action)
 
         except (ConnectionRefusedError, OSError) as e:
@@ -39,7 +44,7 @@ def start_multiplayer(host, port, rows, cols, mines):
         try:
             game_id = int(game_id)
             game_client = client.GameClient(host, port)
-            action = {'type': 'join', 'game_id': game_id}
+            action = {'type': 'join', 'game_id': game_id, 'username': username}
             game_client.start(action)
         except ValueError:
             print("El ID de la partida debe ser un número.")

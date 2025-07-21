@@ -74,10 +74,11 @@ class GameClient:
             show_mines=self.game.game_over
         )
         if not self.game.game_over:
+            current_player_name = self.game.player_names[self.game.current_turn]
             if self.game.current_turn == self.player_id:
-                print(f"Es tu turno (Jugador {self.player_id})")
+                print(f"Es tu turno ({current_player_name})")
             else:
-                print(f"Turno del oponente (Jugador {1 - self.player_id})")
+                print(f"Turno de {current_player_name}")
 
     def send_action(self, action):
         try:

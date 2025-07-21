@@ -12,15 +12,16 @@ class Buscaminas:
         self.rows = rows
         self.cols = cols
         self.mines = mines
-        self.board = []         # -1 = mina, 0-8 = número de minas adyacentes
-        self.state = []         # HIDDEN, REVEALED o FLAGGED
+        self.board = []
+        self.state = []
         self.score = 0
         self.game_over = False
         self.win = False
         self.first_move = True
         self.start_time = None
         self.elapsed_time = 0
-        self.loser_id = None    # ID del jugador que pisó una mina
+        self.loser_id = None
+        self.player_names = ["Jugador 0", "Jugador 1"]
         self.initialize_game()
     
     def initialize_game(self):

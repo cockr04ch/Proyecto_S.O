@@ -13,6 +13,7 @@ class GameServer:
         self.games = {}
         self.clients_per_game = {}
         self.settings_per_game = {}
+        self.player_names = {}
         self.game_events = {}
         self.game_counter = 1
         self.lock = threading.Lock()
@@ -36,10 +37,11 @@ class GameServer:
         self.games[game_id] = game
         self.settings_per_game[game_id] = settings
         self.clients_per_game[game_id] = []
+        self.player_names[game_id] = []
         self.game_events[game_id] = threading.Event()
         return game_id
 
-    def handle_connection(self, client_socket):
+    """    def handle_connection(self, client_socket):
         game_id = None
         player_id = None
         is_creator = False
@@ -51,6 +53,7 @@ class GameServer:
                 return
             
             action = pickle.loads(initial_data)
+            username = action.get('username', f"Jugador_{int(time.time())}")
 
             response_to_send = None
             notifications_to_send = []
@@ -61,6 +64,7 @@ class GameServer:
                     game_id = self.create_new_game_unlocked(settings)
                     player_id = 0
                     self.clients_per_game[game_id].append(client_socket)
+                    self.player_names[game_id].append(username)
                     is_creator = True
                     
                     response_to_send = pickle.dumps({
@@ -73,7 +77,9 @@ class GameServer:
                     if game_id in self.games and len(self.clients_per_game.get(game_id, [])) == 1:
                         player_id = 1
                         self.clients_per_game[game_id].append(client_socket)
+                        self.player_names[game_id].append(username)
                         game = self.games[game_id]
+                        game.player_names = self.player_names[game_id]
                         
                         for i, c in enumerate(self.clients_per_game[game_id]):
                             data = pickle.dumps({
@@ -131,7 +137,9 @@ class GameServer:
                                     message = "¡Ambos jugadores ganan!"
                                 elif game.loser_id is not None:
                                     winner_id = 1 - game.loser_id
-                                    message = f"Jugador {game.loser_id} pisó una mina. ¡Gana el Jugador {winner_id}!"
+                                    winner_name = game.player_names[winner_id]
+                                    loser_name = game.player_names[game.loser_id]
+                                    message = f"{loser_name} pisó una mina. ¡Gana {winner_name}!"
                             else:
                                 game.current_turn = 1 - game.current_turn
                             
@@ -154,6 +162,7 @@ class GameServer:
                         c.sendall(data)
                     except:
                         print(f"No se pudo enviar a un cliente en la partida {game_id}")
+""
 
         except (pickle.UnpicklingError, ConnectionResetError, BrokenPipeError) as e:
             print(f"Cliente desconectado (Juego: {game_id}, Jugador: {player_id}): {e}")
@@ -181,6 +190,7 @@ class GameServer:
                         if game_id in self.clients_per_game: del self.clients_per_game[game_id]
                         if game_id in self.settings_per_game: del self.settings_per_game[game_id]
                         if game_id in self.game_events: del self.game_events[game_id]
+                        if game_id in self.player_names: del self.player_names[game_id]
 
             client_socket.close()
 
