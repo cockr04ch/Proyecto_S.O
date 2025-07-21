@@ -17,6 +17,7 @@ def start_multiplayer(host, port, rows, cols, mines):
     choice = input("Opción: ").strip()
     
     if choice == '1':
+        game_server = None
         try:
             # Iniciar el servidor en un hilo separado
             game_server = server.GameServer(host, port)
@@ -38,6 +39,11 @@ def start_multiplayer(host, port, rows, cols, mines):
         except Exception as e:
             print(f"Error inesperado al crear la partida: {e}")
             input("Presione Enter para continuar...")
+        finally:
+            if game_server:
+                game_server.stop()
+                server_thread.join(timeout=2)
+                print("Servidor detenido.")
 
     elif choice == '2':
         game_id = input("Ingrese el ID de la partida: ").strip()

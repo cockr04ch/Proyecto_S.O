@@ -193,6 +193,25 @@ class GameServer:
 
             client_socket.close()
 
+    def stop(self):
+        """Detiene el servidor de forma segura."""
+        if not self.running:
+            return
+        
+        print("Deteniendo el servidor...")
+        self.running = False
+        
+        try:
+            host, port = self.server_socket.getsockname()
+            if host == '0.0.0.0':
+                host = '127.0.0.1'
+            
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as dummy_socket:
+                dummy_socket.settimeout(1)
+                dummy_socket.connect((host, port))
+        except Exception as e:
+            print(f"Excepción durante el apagado del servidor (puede ser normal): {e}")
+
     def start(self):
         print(f"Servidor iniciado en {self.server_socket.getsockname()}, esperando jugadores...")
         timer_thread = threading.Thread(target=self.update_timers)
