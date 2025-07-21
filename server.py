@@ -41,7 +41,7 @@ class GameServer:
         self.game_events[game_id] = threading.Event()
         return game_id
 
-    """    def handle_connection(self, client_socket):
+    def handle_connection(self, client_socket):
         game_id = None
         player_id = None
         is_creator = False
@@ -162,7 +162,6 @@ class GameServer:
                         c.sendall(data)
                     except:
                         print(f"No se pudo enviar a un cliente en la partida {game_id}")
-""
 
         except (pickle.UnpicklingError, ConnectionResetError, BrokenPipeError) as e:
             print(f"Cliente desconectado (Juego: {game_id}, Jugador: {player_id}): {e}")
