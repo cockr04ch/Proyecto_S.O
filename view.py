@@ -62,7 +62,11 @@ def sltc_menu(opc):
             try:
                 rows = int(input("Filas: "))
                 cols = int(input("Columnas: "))
-                mines = int(input("Minas: "))
+                while True:
+                    mines = int(input("Minas: "))
+                    if mines < rows * cols:
+                        break
+                    print(f"El número de minas no puede ser mayor o igual al número de casillas ({rows * cols}).")
                 one_player.start_game(rows, cols, mines)
             except ValueError:
                 print("Entrada inválida. Por favor ingrese números.")
@@ -89,7 +93,11 @@ def sltc_menu(opc):
                 try:
                     rows = int(input("Filas: "))
                     cols = int(input("Columnas: "))
-                    mines = int(input("Minas: "))
+                    while True:
+                        mines = int(input("Minas: "))
+                        if mines < rows * cols:
+                            break
+                        print(f"El número de minas no puede ser mayor o igual al número de casillas ({rows * cols}).")
                     multiplayer.start_multiplayer(host, port, rows, cols, mines)
                 except ValueError:
                     print("Entrada inválida. Por favor ingrese números.")
